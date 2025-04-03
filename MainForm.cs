@@ -15,12 +15,13 @@ using Emgu.CV.Structure;
 using Emgu.CV.CvEnum;
 using System.IO;
 using System.Diagnostics;
+using System.Threading;
 
-namespace MultiFaceRec
+namespace TimeAttendanceManagement
 {
     public partial class MainForm : Form
     {
-        //Declararation of all variables, vectors and haarcascades
+        //Variables Initialization
         Image<Bgr, Byte> currentFrame;
         Capture grabber;
         HaarCascade face;
@@ -33,8 +34,13 @@ namespace MultiFaceRec
         List<string> NamePersons = new List<string>();
         int ContTrain, NumLabels, t;
         string name, names = null;
+        int HoldCapture = 5;
+        int HoldCounter = 0;
 
-        private void MainForm_Load(object sender, EventArgs e)
+        //Settings
+        string LogFilePath = Application.StartupPath + "\\LogCapture\\" + DateTime.Now.ToString("MMddyyyy") + ".dat";
+
+        private void LoadInit()
         {
             //Initialize the capture device
             grabber = new Capture();
@@ -42,6 +48,82 @@ namespace MultiFaceRec
             //Initialize the FrameGraber event
             Application.Idle += new EventHandler(FrameGrabber);
             button1.Enabled = false;
+            HoldCounter = HoldCapture;
+            if(!Directory.Exists(Application.StartupPath + "\\LogCapture\\"))
+            {
+                Directory.CreateDirectory(Application.StartupPath + "\\LogCapture\\");
+            }
+            if (!File.Exists(LogFilePath))
+            {
+                File.Create(LogFilePath);
+            }
+        }
+
+        private void MainForm_Load(object sender, EventArgs e)
+        {
+            LoadInit();
+        }
+
+        private void Clock_Tick(object sender, EventArgs e)
+        {
+            lblDate.Text = DateTime.Now.ToString("MMMM dd, yyyy - dddd");
+            lblTime.Text = DateTime.Now.ToString("HH:mm:ss");
+        }
+
+        private void refreshToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            
+        }
+
+        private void label4_TextChanged(object sender, EventArgs e)
+        {
+            if(!string.IsNullOrEmpty(label4.Text))
+            {
+                lblHoldStill.Visible = true;
+                tmrCapture.Enabled = true;
+            }else
+            {
+                lblHoldStill.Visible = false;
+                tmrCapture.Enabled = false;
+                HoldCounter = HoldCapture;
+            }
+        }
+
+        private void tmrCapture_Tick(object sender, EventArgs e)
+        {
+            lblHoldStill.Text = "Please don't move for Face Capturing: " + HoldCounter--;
+            if (HoldCounter == 1)
+            {
+                tmrCapture.Enabled = false;
+                HoldCounter = HoldCapture;                
+                File.AppendAllText(LogFilePath, DateTime.Now.ToString("HHmmss") + ";Log Detected:" + lblTime.Text + ";User:" + label4.Text + Environment.NewLine);
+                Thread.Sleep(1000);
+                tmrCapture.Enabled = true;
+            }
+        }
+
+        private void exitToolStripMenuItem1_Click(object sender, EventArgs e)
+        {
+            Application.Exit();
+        }
+
+        private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            DialogResult dr = MessageBox.Show("Are you sure you want to close this application?", "Confirm Application Close?", MessageBoxButtons.YesNo);
+            if (dr == DialogResult.No)
+            {
+                e.Cancel = true;
+            }
+        }
+
+        private void managementToolStripMenuItem1_Click(object sender, EventArgs e)
+        {
+            MainTC.SelectTab(1);
+        }
+
+        private void timeAttendanceToolStripMenuItem1_Click(object sender, EventArgs e)
+        {
+            MainTC.SelectTab(0);
         }
 
         public MainForm()
@@ -148,7 +230,7 @@ namespace MultiFaceRec
 
 
             //Get the current frame form capture device
-            currentFrame = grabber.QueryFrame().Resize(320, 240, Emgu.CV.CvEnum.INTER.CV_INTER_CUBIC);
+            currentFrame = grabber.QueryFrame().Resize(620, 620, Emgu.CV.CvEnum.INTER.CV_INTER_CUBIC);
 
                     //Convert it to Grayscale
                     gray = currentFrame.Convert<Gray, Byte>();
@@ -219,19 +301,20 @@ namespace MultiFaceRec
                     }
                         t = 0;
 
-                        //Names concatenation of persons recognized
-                    for (int nnn = 0; nnn < facesDetected[0].Length; nnn++)
-                    {
-                        names = names + NamePersons[nnn] + ", ";
-                    }
-                    //Show the faces procesed and recognized
-                    imageBoxFrameGrabber.Image = currentFrame;
-                    label4.Text = names;
-                    names = "";
-                    //Clear the list(vector) of names
-                    NamePersons.Clear();
-
+            //Check if the face it detected and recognized
+            
+                for (int nnn = 0; nnn < facesDetected[0].Length; nnn++)
+                {
+                    names = names + NamePersons[nnn];
                 }
+                //Show the faces procesed and recognized
+                imageBoxFrameGrabber.Image = currentFrame;
+                label4.Text = names;
+                names = "";            
+                //Clear the list(vector) of names
+                NamePersons.Clear();            
+
+        }
 
   
 
